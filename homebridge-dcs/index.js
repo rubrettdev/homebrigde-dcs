@@ -14,14 +14,14 @@ module.exports = function(homebridge) {
 
   // For platform plugin to be considered as dynamic platform plugin,
   // registerPlatform(pluginName, platformName, constructor, dynamic), dynamic must be true
-  homebridge.registerPlatform("homebridge-dcs", "Domatica DCS homebridge Plugin", homebrigeDCS, true);
+  homebridge.registerPlatform("homebridge-dcs", "DomaticaDCS", homebrigeDCS, true);
 }
 
 // Platform constructor
 // config may be null
-// api may be null if launched from old homebridge version 
+// api may be null if launched from old homebridge version
 function homebrigeDCS(log, config, api) {
-  log("homebrigeDCS Init");
+  log("homebrigeDCS Initializer!");
   var platform = this;
   this.log = log;
   this.config = config;
@@ -47,6 +47,7 @@ function homebrigeDCS(log, config, api) {
     }
   }.bind(this));
 
+
   this.requestServer.listen(18081, function() {
     platform.log("Server Listening...");
   });
@@ -54,7 +55,7 @@ function homebrigeDCS(log, config, api) {
   if (api) {
       // Save the API object as plugin needs to register new accessory via this object.
       this.api = api;
-
+      
       // Listen to event "didFinishLaunching", this means homebridge already finished loading cached accessories
       // Platform Plugin should only register new accessory that doesn't exist in homebridge after this event.
       // Or start discover new accessories
@@ -108,7 +109,7 @@ homebrigeDCS.prototype.configurationRequestHandler = function(context, request, 
     // set "type" to platform if the plugin is trying to modify platforms section
     // set "replace" to true will let homebridge replace existing config in config.json
     // "config" is the data platform trying to save
-    callback(null, "platform", true, {"platform":"SamplePlatform", "otherConfig":"SomeData"});
+    callback(null, "platform", true, {"platform":"DomaticaDCS", "otherConfig":"SomeData"});
     return;
   }
 
@@ -126,12 +127,12 @@ homebrigeDCS.prototype.configurationRequestHandler = function(context, request, 
         "id": "name",
         "title": "Name",
         "placeholder": "Fancy Light"
-      }//,
-      // {
-      //   "id": "pw",
-      //   "title": "Password",
-      //   "secure": true
-      // }
+      },
+      {
+        "id": "pw",
+        "title": "Password",
+        "secure": true
+      }
     ]
   }
 
@@ -167,7 +168,7 @@ homebrigeDCS.prototype.configurationRequestHandler = function(context, request, 
   // }
 
   // Plugin can set context to allow it track setup process
-  context.ts = "Hello";
+  context.ts = "DomaticaDCS";
 
   //invoke callback to update setup UI
   callback(respDict);
@@ -198,7 +199,7 @@ homebrigeDCS.prototype.addAccessory = function(accessoryName) {
   });
 
   this.accessories.push(newAccessory);
-  this.api.registerPlatformAccessories("homebridge-samplePlatform", "SamplePlatform", [newAccessory]);
+  this.api.registerPlatformAccessories("homebridge-dcs", "DomaticaDCS", [newAccessory]);
 }
 
 homebrigeDCS.prototype.updateAccessoriesReachability = function() {
@@ -212,7 +213,7 @@ homebrigeDCS.prototype.updateAccessoriesReachability = function() {
 // Sample function to show how developer can remove accessory dynamically from outside event
 homebrigeDCS.prototype.removeAccessory = function() {
   this.log("Remove Accessory");
-  this.api.unregisterPlatformAccessories("homebridge-samplePlatform", "SamplePlatform", this.accessories);
+  this.api.unregisterPlatformAccessories("homebridge-dcs", "DomaticaDCS", this.accessories);
 
   this.accessories = [];
 }
