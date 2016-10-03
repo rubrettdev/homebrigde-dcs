@@ -1,9 +1,8 @@
+
 module.exports = new function()
 {
   /* Get dcsNodeAPI into memory*/
   var dcsNodeAPI = require ("./dcsNodeAPI.js");
-  /* Get config.json into memory*/
-  var DCSConfig = require ("../data/config.json");
   /* Get Utilities into memory*/
   var utils = require ("./utils.js");
 
@@ -19,21 +18,20 @@ module.exports = new function()
      };
   };
 
-  /* return config values*/
-  this.getConfigValues = function() {
-    return DCSConfig
-  }
-
   /* Set Connection Settings to DCS*/
-  this.connect = function() {
-    dcsNodeAPI.setNode(DCSConfig.dcs.nodeId,DCSConfig.dcs.gToken);
+  this.setNode = function(config) {
+    if (typeof config.nodeId != 'undefined' && typeof config.gToken != 'undefined'){
+      dcsNodeAPI.setNode(config.nodeId,config.gToken,config.baseURL);
+    }else {
+      console.log(config);
+      throw new Error("ERROR: DCS config not set please check you config.json file!");
+    };
   };
 
   /* Get System File
     This function will decompress and parse from XML to JSON the System File
   */
   this.GetSystemFile = function (callback) {
-    this.connect();
     dcsNodeAPI.GetSystemFile(function (resultFromPost){
         if (!resultFromPost.code){
           var mySystemFile = utils.decode_utf8(utils.uncompress(resultFromPost.resultMessage).substring(3));
@@ -86,26 +84,51 @@ module.exports = new function()
   };
 
   /* Fill devicesObject for UI preview */
-  this.getActionObjects = function (mySystemFileJSON){
+  getActionObjects = function (mySystemFileJSON){
     //define Objects for visualization
-    this.devicesObject.devtypes = getDeviceType(mySystemFileJSON);
-    this.devicesObject.sensors = getDevicesbyType(mySystemFileJSON,'Motion Sensor');
-    this.devicesObject.lights = getDevicesbyType(mySystemFileJSON,'Light On/Off');
-    this.devicesObject.scenarios = getScenarios(mySystemFileJSON);
-    return this.devicesObject;
+    // this.devicesObject.devtypes = getDeviceType(mySystemFileJSON);
+    // this.devicesObject.sensors = getDevicesbyType(mySystemFileJSON,'Motion Sensor');
+    this.devicesObject = {'lights':getDevicesbyType(mySystemFileJSON,'Light On/Off')};
+    // this.devicesObject.scenarios = getScenarios(mySystemFileJSON);
+    return devicesObject;
   }
 
   /* Get Object value */
   this.GetiDomObjectValue = function (iDomObject, callback){
-    this.connect();
-    dcsNodeAPI.getValue(iDomObject, function (body){
-      callback(body);
+    return dcsNodeAPI.getValue(iDomObject, function (body){
+      return callback(body);
     });
   };
 
-  this.GetiDomGroupObjectValue = function (iDomObject, callback){
-    this.connect();
-    dcsNodeAPI.getValue(iDomObject, function (body){
+
+  // this.GetiDomGroupObjectValue = function (iDomObject, callback){
+  //   // this.connect();
+  //   dcsNodeAPI.getValue(iDomObject, function (body){
+  //     callback(body);
+  //   });
+  // };
+
+
+  this.getAccessories = function (config, accessoryType, callback){
+    // Get Gateway System file
+    this.devicesObject.config = config;
+    this.setNode(config);
+    this.GetSystemFile(function (body){
+      if (body.code == -1){
+        // Do Nothing - ERROR to be treated later
+        throw new Error("ERROR: (%s) %s",body.code, body.message);
+        console.log("ERROR: (%s) %s",body.code, body.message );
+        // console.log(body);
+      }else {
+        callback(getActionObjects(body));
+      }
+    });
+  }
+
+  /* Get Object value */
+  this.SetiDomObjectValue = function (iDomObject, value, callback){
+    // this.connect();
+    dcsNodeAPI.setValue(iDomObject, value, function (body){
       callback(body);
     });
   };

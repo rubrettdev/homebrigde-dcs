@@ -68,8 +68,8 @@ module.exports  = new function()
 		var cmdBody = '{"gTokens":[{"vGatewayId":"' + nodeId + '","gToken":"' + gToken + '"}],"objects":[{"vGatewayId":"' + nodeId + '","idname":"' + objName + '","data":"' + objValue + '"}]}';
 		console.log("RTCommand: %s", cmdBody);
 		this.sendCommand(url, cmdBody, function (body){
-				// console.log(body);
-				callback(body.objects[0].data);
+				console.log(body);
+				callback(body);
 		});
 	}
 	/*private*/
@@ -107,10 +107,11 @@ module.exports  = new function()
 			callback(body);
 		});
 	}
-	this.setValue = function(objName, objValue, callback)
+	this.setValue = function(objName, objValue, setValuecallback)
 	{
 		this.realTimeCommand(this.nodeId, this.gToken, "set", objName, objValue, function (body){
-			callback(body);
+			console.log(body);
+			// setValuecallback(body);
 		});
 	}
 	this.clearGetRequest = function () {
@@ -160,7 +161,7 @@ module.exports  = new function()
     var result = this.sendCommand(baseUrl + 'requestSystemFile', payload, function (data){
 			callback(data);
 		});
-		console.log("Result %s",result);
+		// console.log("Result %s",result);
 	}
 
 };

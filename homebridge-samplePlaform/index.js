@@ -1,12 +1,19 @@
 var http = require('http');
-var Accessory, Service, Characteristic, UUIDGen;
+var homeDCS = require("./dcsAPI/homeNodeDCS");
+
+var Accessory, Service, Characteristic, UUIDGen, DCSSystemFile, ActionableObjects, homeBridge;
+
+// Private Modules
+
+
+
 
 module.exports = function(homebridge) {
   console.log("homebridge API version: " + homebridge.version);
 
   // Accessory must be created from PlatformAccessory Constructor
   Accessory = homebridge.platformAccessory;
-
+  homeBridge = homebridge;
   // Service and Characteristic are from hap-nodejs
   Service = homebridge.hap.Service;
   Characteristic = homebridge.hap.Characteristic;
@@ -29,6 +36,9 @@ function SamplePlatform(log, config, api) {
   this.nodeId = config["nodeId"];
   this.gToken = config["gToken"];
   this.accessories = [];
+
+  // Set DCS nodeId
+  homeDCS.setNode(this.config);
 
   this.requestServer = http.createServer(function(request, response) {
     // if (request.url === "/add") {
@@ -60,12 +70,42 @@ function SamplePlatform(log, config, api) {
   if (api) {
       // Save the API object as plugin needs to register new accessory via this object.
       this.api = api;
-
       // Listen to event "didFinishLaunching", this means homebridge already finished loading cached accessories
       // Platform Plugin should only register new accessory that doesn't exist in homebridge after this event.
       // Or start discover new accessories
       this.api.on('didFinishLaunching', function() {
+        var HAPaccessories = this.accessories;
+        var existingAccessory = false;
+        console.log(this.accessories);
+
+        /* Kick DCS Connection Settigns */
+        homeDCS.getAccessories(this.config,"Lightbulb", function(DCSaccessories){
+          // console.log(DCSaccessories.lights);
+          this.DCSaccessories = DCSaccessories;
+
+          for(var DCSaccessory in DCSaccessories.lights){
+            // Log Servicing Devices
+            platform.log("DCS Accessory found: (%s)",DCSaccessories.lights[DCSaccessory].name);
+            if (HAPaccessories.length > 1){
+              for (var index in HAPaccessories) {
+                var accessorylist = HAPaccessories[index];
+                platform.log("Check if Accessory exists: (%s)",accessorylist.displayName);
+
+                if (accessorylist.displayName == this.DCSaccessories.lights[DCSaccessory].name ) {
+                  existingAccessory = true;
+                  platform.log("Servicing Device: (%s)",accessorylist.displayName);
+                }
+              }
+            }
+            if (existingAccessory == false){
+              platform.log("Adding Accessory : (%s)",this.DCSaccessories.lights[DCSaccessory].name);
+              platform.addAccessory(this.DCSaccessories.lights[DCSaccessory], "Lightbulb");
+            }
+            }
+          });
+
         platform.log("DidFinishLaunching");
+
       }.bind(this));
   }
 }
@@ -77,6 +117,7 @@ SamplePlatform.prototype.configureAccessory = function(accessory) {
   this.log(accessory.displayName, "Configure Accessory");
   var platform = this;
 
+
   // set the accessory to reachable if plugin can currently process the accessory
   // otherwise set to false and update the reachability later by invoking
   // accessory.updateReachability()
@@ -84,6 +125,7 @@ SamplePlatform.prototype.configureAccessory = function(accessory) {
 
   accessory.on('identify', function(paired, callback) {
     platform.log(accessory.displayName, "Identify!!!");
+
     callback();
   });
 
@@ -91,11 +133,20 @@ SamplePlatform.prototype.configureAccessory = function(accessory) {
     accessory.getService(Service.Lightbulb)
     .getCharacteristic(Characteristic.On)
     .on('set', function(value, callback) {
+      console.log(this.accessories);
+      switch (value) {
+        case false:
+          value = 0;
+          break;
+        default: value = 1;
+      }
+      homeDCS.SetiDomObjectValue(accessory.displayName+'.control', value, function (body){
+        console.log(value);
+      });
       platform.log(accessory.displayName, "Light -> " + value);
       callback();
-    });
+    })
   }
-
   this.accessories.push(accessory);
 }
 
@@ -181,18 +232,31 @@ SamplePlatform.prototype.configurationRequestHandler = function(context, request
 }
 
 // Sample function to show how developer can add accessory dynamically from outside event
-SamplePlatform.prototype.addAccessory = function(accessoryName, accessoryType ) {
-  this.log("Add Accessory: " + accessoryName + " as " +  accessoryType);
+SamplePlatform.prototype.addAccessory = function(DCSaccessory) {
   var platform = this;
   var uuid;
+  var accessoryType = DCSaccessory.devtype || "Light On/Off";
+  var accessoryName = DCSaccessory.name;
+  var accessoryNameId = DCSaccessory.idname || accessoryName;
 
-  uuid = UUIDGen.generate(accessoryName);
+  this.log("Add Accessory: " + accessoryName + " as " +  accessoryType + " with uuid: " + accessoryNameId);
+
+  uuid = UUIDGen.generate(accessoryNameId);
 
   var newAccessory = new Accessory(accessoryName, uuid);
   newAccessory.on('identify', function(paired, callback) {
     platform.log(accessory.displayName, "Identify!!!");
     callback();
   });
+
+  // Set service Information
+  newAccessory.getService(Service.AccessoryInformation)
+      .setCharacteristic(Characteristic.Manufacturer, accessoryNameId)
+      .on('set', function(value, callback) {
+        platform.log(accessory.displayName, "Set DCS Service Characteristics");
+        callback();
+      });
+
   // Plugin can save context on accessory
   // To help restore accessory in configureAccessory()
   // newAccessory.context.something = "Something"
@@ -203,7 +267,15 @@ SamplePlatform.prototype.addAccessory = function(accessoryName, accessoryType ) 
     platform.log(accessory.displayName, "Light -> " + value);
     callback();
   });
+  //
+  // newAccessory.getService(Service.Lightbulb)
+  // .getCharacteristic(Characteristic.On)
+  // .on('get', function(value, callback) {
+  //   platform.log(accessory.displayName, "Get Light -> " + value);
+  //   callback();
+  // });
 
+  newAccessory.updateReachability(true);
   this.accessories.push(newAccessory);
   this.api.registerPlatformAccessories("homebridge-samplePlatform", "SamplePlatform", [newAccessory]);
 }
@@ -212,7 +284,7 @@ SamplePlatform.prototype.updateAccessoriesReachability = function() {
   this.log("Update Reachability");
   for (var index in this.accessories) {
     var accessory = this.accessories[index];
-    accessory.updateReachability(false);
+    accessory.updateReachability(true);
   }
 }
 
