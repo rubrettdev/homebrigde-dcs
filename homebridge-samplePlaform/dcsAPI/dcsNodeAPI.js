@@ -68,7 +68,7 @@ module.exports  = new function()
 		var cmdBody = '{"gTokens":[{"vGatewayId":"' + nodeId + '","gToken":"' + gToken + '"}],"objects":[{"vGatewayId":"' + nodeId + '","idname":"' + objName + '","data":"' + objValue + '"}]}';
 		console.log("RTCommand: %s", cmdBody);
 		this.sendCommand(url, cmdBody, function (body){
-				console.log(body);
+				// console.log(body);
 				callback(body);
 		});
 	}
@@ -110,8 +110,8 @@ module.exports  = new function()
 	this.setValue = function(objName, objValue, setValuecallback)
 	{
 		this.realTimeCommand(this.nodeId, this.gToken, "set", objName, objValue, function (body){
-			console.log(body);
-			// setValuecallback(body);
+			// console.log(body);
+			setValuecallback(body);
 		});
 	}
 	this.clearGetRequest = function () {

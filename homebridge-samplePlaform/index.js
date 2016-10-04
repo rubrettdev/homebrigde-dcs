@@ -89,16 +89,16 @@ function SamplePlatform(log, config, api) {
             if (HAPaccessories.length > 1){
               for (var index in HAPaccessories) {
                 var accessorylist = HAPaccessories[index];
-                platform.log("Check if Accessory exists: (%s)",accessorylist.displayName);
+                // platform.log("Check if Accessory exists: (%s)",accessorylist.displayName);
 
                 if (accessorylist.displayName == this.DCSaccessories.lights[DCSaccessory].name ) {
                   existingAccessory = true;
-                  platform.log("Servicing Device: (%s)",accessorylist.displayName);
+                  platform.log("Already Servicing Device: (%s)",accessorylist.displayName);
                 }
               }
             }
             if (existingAccessory == false){
-              platform.log("Adding Accessory : (%s)",this.DCSaccessories.lights[DCSaccessory].name);
+              platform.log("Adding NEW Accessory: (%s)",this.DCSaccessories.lights[DCSaccessory].name);
               platform.addAccessory(this.DCSaccessories.lights[DCSaccessory], "Lightbulb");
             }
             }
@@ -133,17 +133,18 @@ SamplePlatform.prototype.configureAccessory = function(accessory) {
     accessory.getService(Service.Lightbulb)
     .getCharacteristic(Characteristic.On)
     .on('set', function(value, callback) {
-      console.log(this.accessories);
+      console.log(accessory);
       switch (value) {
         case false:
           value = 0;
           break;
         default: value = 1;
       }
-      homeDCS.SetiDomObjectValue(accessory.displayName+'.control', value, function (body){
-        console.log(value);
+      var dcsIdName = accessory.getService(Service.AccessoryInformation).getCharacteristic(Characteristic.Manufacturer).value
+      homeDCS.SetiDomObjectValue(dcsIdName+'.control', value, function (body){
+        platform.log("Result of Action: \n ", body);
       });
-      platform.log(accessory.displayName, "Light -> " + value);
+      platform.log(accessory.displayName, " SET Value to -> " + value);
       callback();
     })
   }
@@ -268,16 +269,17 @@ SamplePlatform.prototype.addAccessory = function(DCSaccessory) {
     callback();
   });
   //
-  // newAccessory.getService(Service.Lightbulb)
-  // .getCharacteristic(Characteristic.On)
-  // .on('get', function(value, callback) {
-  //   platform.log(accessory.displayName, "Get Light -> " + value);
-  //   callback();
-  // });
+  newAccessory.getService(Service.Lightbulb)
+  .getCharacteristic(Characteristic.On)
+  .on('get', function(value, callback) {
+    platform.log(accessory.displayName, "Get Light -> " + value);
+    callback();
+  });
 
   newAccessory.updateReachability(true);
   this.accessories.push(newAccessory);
   this.api.registerPlatformAccessories("homebridge-samplePlatform", "SamplePlatform", [newAccessory]);
+
 }
 
 SamplePlatform.prototype.updateAccessoriesReachability = function() {
